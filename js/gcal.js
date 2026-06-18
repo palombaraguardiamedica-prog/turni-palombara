@@ -21,22 +21,24 @@
   const LS_HINT = 'turni_palombara_gcal_id';
   const LS_COLOR = 'turni_palombara_gcal_color';
 
-  // Palette colori EVENTI Google Calendar (colorId 1-11) → lo swatch
-  // scelto coincide col colore reale dei turni sul calendario.
+  // Palette colori. Gli EVENTI ereditano il colore del CALENDARIO (custom
+  // backgroundColor): cosi' swatch = calendario = eventi, lo STESSO identico
+  // hex, senza lo scarto tra swatch e render del colorId di Google. Si
+  // possono quindi usare hex arbitrari, incluso il verde dell'app.
   const CAL_COLORS = [
-    { colorId: '7', hex: '#039be5', nome: 'Pavone' },
-    { colorId: '9', hex: '#3f51b5', nome: 'Mirtillo' },
-    { colorId: '1', hex: '#7986cb', nome: 'Lavanda' },
-    { colorId: '10', hex: '#0b8043', nome: 'Basilico' },
-    { colorId: '2', hex: '#33b679', nome: 'Salvia' },
-    { colorId: '5', hex: '#f6bf26', nome: 'Banana' },
-    { colorId: '6', hex: '#f4511e', nome: 'Mandarino' },
-    { colorId: '11', hex: '#d50000', nome: 'Pomodoro' },
-    { colorId: '4', hex: '#e67c73', nome: 'Salmone' },
-    { colorId: '3', hex: '#8e24aa', nome: 'Uva' },
-    { colorId: '8', hex: '#616161', nome: 'Grafite' }
+    { hex: '#3f7d57', nome: 'Verde Palombara' },
+    { hex: '#0b8043', nome: 'Basilico' },
+    { hex: '#33b679', nome: 'Salvia' },
+    { hex: '#039be5', nome: 'Pavone' },
+    { hex: '#3f51b5', nome: 'Mirtillo' },
+    { hex: '#7986cb', nome: 'Lavanda' },
+    { hex: '#f6bf26', nome: 'Banana' },
+    { hex: '#f4511e', nome: 'Mandarino' },
+    { hex: '#d50000', nome: 'Pomodoro' },
+    { hex: '#e67c73', nome: 'Salmone' },
+    { hex: '#8e24aa', nome: 'Uva' },
+    { hex: '#616161', nome: 'Grafite' }
   ];
-  const hexFor = (id) => (CAL_COLORS.find(c => c.colorId === id) || CAL_COLORS[0]).hex;
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   const pad2 = (n) => String(n).padStart(2, '0');
 
@@ -100,23 +102,23 @@
     const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
     return ((0.299 * r + 0.587 * g + 0.114 * b) / 255) > 0.6 ? '#1d1d1d' : '#ffffff';
   }
-  async function applyColor(token, calId, colorId) {
-    if (!colorId) return; const hex = hexFor(colorId);
+  async function applyColor(token, calId, hex) {
+    if (!hex) return;
     try {
       await gcal(token, 'PATCH', '/users/me/calendarList/' + encodeURIComponent(calId) + '?colorRgbFormat=true',
         { backgroundColor: hex, foregroundColor: readableFg(hex) });
-    } catch (_) { /* colore del calendario non applicabile: gli eventi restano comunque colorati */ }
+    } catch (_) { /* colore non applicabile con lo scope corrente: ignora */ }
   }
 
   function calGone() { return new Error('CALENDAR_GONE'); }
   function isGone(e) { return e && e.message === 'CALENDAR_GONE'; }
 
-  async function findOrCreateCalendar(token, colorId, forceCreate) {
+  async function findOrCreateCalendar(token, color, forceCreate) {
     if (!forceCreate) {
       try {
         const hint = localStorage.getItem(LS_HINT);
         if (hint) {
-          try { await gcal(token, 'GET', '/calendars/' + encodeURIComponent(hint)); await applyColor(token, hint, colorId); return hint; }
+          try { await gcal(token, 'GET', '/calendars/' + encodeURIComponent(hint)); await applyColor(token, hint, color); return hint; }
           catch (_) { localStorage.removeItem(LS_HINT); }
         }
       } catch (_) {}
@@ -124,14 +126,14 @@
     try {
       const list = await gcal(token, 'GET', '/users/me/calendarList?maxResults=250');
       const found = (list.items || []).find(c => c.summary === CAL_SUMMARY);
-      if (found) { try { localStorage.setItem(LS_HINT, found.id); } catch (_) {} await applyColor(token, found.id, colorId); return found.id; }
+      if (found) { try { localStorage.setItem(LS_HINT, found.id); } catch (_) {} await applyColor(token, found.id, color); return found.id; }
     } catch (_) {}
     const created = await gcal(token, 'POST', '/calendars', {
       summary: CAL_SUMMARY, timeZone: TZ,
       description: 'Turni guardia medica di Palombara — sincronizzati dall\'app Turni Palombara. Non modificare a mano: gli eventi vengono sovrascritti a ogni sincronizzazione.'
     });
     try { localStorage.setItem(LS_HINT, created.id); } catch (_) {}
-    await applyColor(token, created.id, colorId);
+    await applyColor(token, created.id, color);
     return created.id;
   }
 
@@ -144,17 +146,18 @@
   // Per ogni giorno di turno: "Notte Palombara" 20-22 (stesso giorno) +
   // "SN" 08-10 (mattino dopo). L'id e' legato al GIORNO DEL TURNO (non alla
   // data dell'evento): cosi' togliendo la X spariscono entrambi.
-  function buildDesired(email, dates, colorId) {
+  function buildDesired(email, dates) {
     const m = new Map();
     for (const g of dates) {
-      m.set(nightId(email, g), { id: nightId(email, g), date: g, start: NIGHT.start, end: NIGHT.end, title: NIGHT.title, sig: 'notte|c' + colorId });
-      m.set(snId(email, g), { id: snId(email, g), date: nextDay(g), start: SN.start, end: SN.end, title: SN.title, sig: 'sn|c' + colorId });
+      m.set(nightId(email, g), { id: nightId(email, g), date: g, start: NIGHT.start, end: NIGHT.end, title: NIGHT.title, sig: 'notte' });
+      m.set(snId(email, g), { id: snId(email, g), date: nextDay(g), start: SN.start, end: SN.end, title: SN.title, sig: 'sn' });
     }
     return m;
   }
-  function eventBody(d, colorId, monthKey) {
+  // niente colorId: l'evento eredita il colore (custom) del calendario
+  function eventBody(d, monthKey) {
     return {
-      id: d.id, summary: d.title, colorId: colorId,
+      id: d.id, summary: d.title,
       start: { dateTime: d.date + 'T' + d.start + ':00', timeZone: TZ },
       end: { dateTime: d.date + 'T' + d.end + ':00', timeZone: TZ },
       extendedProperties: { private: { app: APP_TAG, m: monthKey, sig: d.sig } },
@@ -186,14 +189,14 @@
     await Promise.all(workers);
   }
 
-  async function runOnce(token, email, year, month, dates, colorId, forceCreate, onProgress) {
+  async function runOnce(token, email, year, month, dates, color, forceCreate, onProgress) {
     onProgress && onProgress({ phase: 'calendar' });
-    const calId = await findOrCreateCalendar(token, colorId, forceCreate);
+    const calId = await findOrCreateCalendar(token, color, forceCreate);
     const monthKey = year + '-' + pad2(month + 1);
 
     onProgress && onProgress({ phase: 'reading' });
     const existing = forceCreate ? new Map() : await listManaged(token, calId, monthKey);
-    const desired = buildDesired(email, dates, colorId);
+    const desired = buildDesired(email, dates);
 
     const toCreate = [], toUpdate = [], toDelete = [];
     for (const [id, d] of desired) {
@@ -208,9 +211,9 @@
     onProgress && onProgress({ phase: 'writing', done: 0, total });
     const path = '/calendars/' + encodeURIComponent(calId) + '/events';
     const createEvent = async (d) => {
-      try { await gcal(token, 'POST', path, eventBody(d, colorId, monthKey)); }
+      try { await gcal(token, 'POST', path, eventBody(d, monthKey)); }
       catch (e) {
-        if (/HTTP 409/.test(e.message)) await gcal(token, 'PUT', path + '/' + d.id, eventBody(d, colorId, monthKey));
+        if (/HTTP 409/.test(e.message)) await gcal(token, 'PUT', path + '/' + d.id, eventBody(d, monthKey));
         else if (/HTTP 404/.test(e.message)) throw calGone();
         else throw e;
       }
@@ -218,7 +221,7 @@
     const W = 2;
     await pool(toCreate, W, async d => { await createEvent(d); tick(); });
     await pool(toUpdate, W, async d => {
-      try { await gcal(token, 'PUT', path + '/' + d.id, eventBody(d, colorId, monthKey)); }
+      try { await gcal(token, 'PUT', path + '/' + d.id, eventBody(d, monthKey)); }
       catch (e) { if (/HTTP 404/.test(e.message)) await createEvent(d); else throw e; }
       tick();
     });
@@ -233,13 +236,13 @@
   }
 
   async function syncMonth(opts) {
-    const { clientId, email, year, month, dates, colorId, onProgress } = opts;
+    const { clientId, email, year, month, dates, color, onProgress } = opts;
     onProgress && onProgress({ phase: 'auth' });
     const token = await requestToken(clientId);
-    saveColor(colorId);
-    try { return await runOnce(token, email, year, month, dates, colorId, false, onProgress); }
+    saveColor(color);
+    try { return await runOnce(token, email, year, month, dates, color, false, onProgress); }
     catch (e) {
-      if (isGone(e)) { try { localStorage.removeItem(LS_HINT); } catch (_) {} return await runOnce(token, email, year, month, dates, colorId, true, onProgress); }
+      if (isGone(e)) { try { localStorage.removeItem(LS_HINT); } catch (_) {} return await runOnce(token, email, year, month, dates, color, true, onProgress); }
       throw e;
     }
   }

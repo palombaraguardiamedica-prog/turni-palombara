@@ -348,7 +348,7 @@
     $('sync-done').classList.toggle('hidden', step !== 'done');
     $('sync-error').classList.toggle('hidden', step !== 'error');
     const go = $('btn-sync-go'), cancel = $('btn-sync-cancel');
-    if (step === 'intro') { go.classList.remove('hidden'); go.textContent = 'Sincronizza'; go.disabled = !myMonthDates().length; cancel.classList.remove('hidden'); cancel.textContent = 'Annulla'; }
+    if (step === 'intro') { go.classList.remove('hidden'); go.textContent = myMonthDates().length ? 'Sincronizza' : 'Sincronizza (svuota mese)'; go.disabled = false; cancel.classList.remove('hidden'); cancel.textContent = 'Annulla'; }
     else if (step === 'syncing') { go.classList.add('hidden'); cancel.classList.add('hidden'); }
     else if (step === 'done') { go.classList.add('hidden'); cancel.classList.remove('hidden'); cancel.textContent = 'Chiudi'; }
     else { go.classList.remove('hidden'); go.textContent = 'Riprova'; go.disabled = false; cancel.classList.remove('hidden'); cancel.textContent = 'Chiudi'; }
@@ -356,12 +356,12 @@
   function renderSyncColors() {
     const box = $('sync-colors'); box.innerHTML = '';
     const saved = GCAL.getSavedColor();
-    if (!state.syncColor) state.syncColor = (saved && GCAL.CAL_COLORS.some(c => c.colorId === saved)) ? saved : GCAL.CAL_COLORS[0].colorId;
+    if (!state.syncColor) state.syncColor = (saved && GCAL.CAL_COLORS.some(c => c.hex === saved)) ? saved : GCAL.CAL_COLORS[0].hex;
     GCAL.CAL_COLORS.forEach(c => {
       const b = document.createElement('button');
-      b.type = 'button'; b.className = 'sync-sw' + (c.colorId === state.syncColor ? ' sel' : '');
+      b.type = 'button'; b.className = 'sync-sw' + (c.hex === state.syncColor ? ' sel' : '');
       b.style.background = c.hex; b.title = c.nome;
-      b.addEventListener('click', () => { state.syncColor = c.colorId; renderSyncColors(); });
+      b.addEventListener('click', () => { state.syncColor = c.hex; renderSyncColors(); });
       box.appendChild(b);
     });
   }
@@ -376,14 +376,13 @@
   function closeSync() { $('modal-sync').classList.add('hidden'); }
   const SYNC_PHASE = { auth: 'Autorizzazione Google…', calendar: 'Preparo il calendario «TURNI PALOMBARA»…', reading: 'Leggo i turni già presenti…', writing: 'Aggiorno i turni…', done: 'Completato' };
   async function doSync() {
-    const dates = myMonthDates();
-    if (!dates.length) { toast('Nessun turno da sincronizzare in questo mese.', true); return; }
+    const dates = myMonthDates();   // anche [] è valido: svuota il mese sul calendario
     syncSetStep('syncing');
     $('sync-phase').textContent = SYNC_PHASE.auth; $('sync-count').textContent = '';
     try {
       const res = await GCAL.syncMonth({
         clientId: CONFIG.GOOGLE_CLIENT_ID, email: lower(state.me.email),
-        year: state.year, month: state.month, dates, colorId: state.syncColor,
+        year: state.year, month: state.month, dates, color: state.syncColor,
         onProgress: (p) => {
           $('sync-phase').textContent = SYNC_PHASE[p.phase] || 'Sincronizzazione…';
           $('sync-count').textContent = (p.phase === 'writing' && p.total != null) ? `${p.done || 0} / ${p.total}` : '';
