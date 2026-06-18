@@ -210,6 +210,28 @@ tfoot td.tot-label { text-align: right; }
 .uo-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
 .uo-text { font-size: 13.5px; opacity: .82; max-width: 320px; line-height: 1.45; }
 
+/* ---------- Colonna NOTE / DESIDERATA ---------- */
+.c-note { min-width: 220px; }
+td.c-note.note {
+  text-align: left; padding: 6px 10px; background: var(--card); color: var(--ink);
+  font-size: 13px; line-height: 1.3; white-space: pre-wrap; word-break: break-word;
+  cursor: pointer; vertical-align: middle;
+}
+td.c-note.note:hover { background: var(--green-tint); }
+.note-ph { color: var(--muted); font-size: 12px; opacity: .65; }
+tr.is-today td.c-note.note { background: var(--today); }
+tfoot td.c-note { background: var(--green-head); }
+
+/* editor nota */
+.modal-note-card { max-width: 440px; }
+.note-day-label { font-size: 13px; margin: 2px 0 10px; text-transform: capitalize; }
+.note-text {
+  width: 100%; border: 1px solid var(--line-strong); border-radius: 10px; padding: 11px 12px;
+  font-size: 15px; font-family: inherit; resize: vertical; min-height: 96px; background: #fff; color: var(--ink);
+}
+.modal-actions { display: flex; gap: 10px; margin-top: 14px; }
+.modal-actions .btn { flex: 1; }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 640px) {
   .feat-btn .ft { display: none; }
@@ -219,4 +241,5 @@ tfoot td.tot-label { text-align: right; }
   .btn-edit { font-size: 13px; padding: 10px 12px; width: 100%; margin-top: 4px; }
   .c-wday { width: 92px; min-width: 92px; }
   td.cell { width: 60px; min-width: 60px; }
+  .c-note { min-width: 150px; }
 }

@@ -69,10 +69,31 @@
       if (error) throw error;
     },
 
+    // --- note per giorno (condivise) ---
+    async monthNotes(year, month) {
+      const first = `${year}-${pad2(month + 1)}-01`;
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      const last = `${year}-${pad2(month + 1)}-${pad2(lastDay)}`;
+      const { data, error } = await sb.from('note_giorni').select('giorno,testo')
+        .gte('giorno', first).lte('giorno', last);
+      if (error) throw error; return data || [];
+    },
+    async saveNote(giorno, testo, email) {
+      testo = (testo || '').trim();
+      if (!testo) {
+        const { error } = await sb.from('note_giorni').delete().eq('giorno', giorno);
+        if (error) throw error; return;
+      }
+      const { error } = await sb.from('note_giorni')
+        .upsert({ giorno, testo, updated_by: lower(email), updated_at: new Date().toISOString() }, { onConflict: 'giorno' });
+      if (error) throw error;
+    },
+
     subscribeTurni(cb) {
       return sb.channel('turni-live')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'turni' }, cb)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'utenti_autorizzati' }, cb)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'note_giorni' }, cb)
         .subscribe();
     },
 

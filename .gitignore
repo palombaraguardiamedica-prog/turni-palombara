@@ -13,3 +13,7 @@ secrets.local.*
 # Google OAuth client secret scaricato da Google Cloud
 client_secret*.json
 *.apps.googleusercontent.com.json
+
+# Anteprime locali con dati mock (NON committare)
+_preview.html
+_icon.html

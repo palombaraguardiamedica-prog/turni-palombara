@@ -103,6 +103,20 @@
     </div>
   </div>
 
+  <!-- ============ MODAL nota del giorno ============ -->
+  <div id="modal-note" class="modal hidden">
+    <div class="modal-card modal-note-card">
+      <button id="btn-note-close" class="modal-x" type="button" aria-label="Chiudi">×</button>
+      <h3>Note del giorno</h3>
+      <div id="note-day-label" class="note-day-label muted"></div>
+      <textarea id="note-text" class="note-text" rows="4" placeholder="Es. ferie, no notte, indisponibile dalle 14…"></textarea>
+      <div class="modal-actions">
+        <button id="btn-note-save" class="btn" type="button">Salva</button>
+        <button id="btn-note-cancel" class="btn btn-ghost" type="button">Annulla</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
 
   <!-- Toast aggiornamento (centrato) -->

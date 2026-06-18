@@ -49,7 +49,7 @@
 
   const state = {
     session: null, me: null, isAdmin: false,
-    users: [], turni: new Set(),
+    users: [], turni: new Set(), notes: {}, editingNote: null,
     year: new Date().getFullYear(), month: new Date().getMonth(),
     editMode: false, channel: null, _initedFor: null, _reloadTimer: null,
     _localSha: null, _updateAvail: false, _toastDismissed: false, _verChannel: null, _verPollId: null
@@ -165,10 +165,13 @@
   // ============================================================
   async function loadMonth() {
     try {
-      const [users, rows] = await Promise.all([DB.listUsers(), DB.monthTurni(state.year, state.month)]);
+      const [users, rows, notes] = await Promise.all([
+        DB.listUsers(), DB.monthTurni(state.year, state.month), DB.monthNotes(state.year, state.month)
+      ]);
       state.users = users.filter(u => u.attivo)
         .sort((a, b) => (a.ordine - b.ordine) || (a.nome || a.email).localeCompare(b.nome || b.email));
       state.turni = new Set(rows.map(r => lower(r.user_email) + '|' + r.giorno));
+      state.notes = {}; notes.forEach(n => { state.notes[n.giorno] = n.testo; });
       render();
     } catch (e) { console.error(e); toast('Errore nel caricamento', true); }
   }
@@ -188,6 +191,7 @@
       const label = u.nome || u.email.split('@')[0];
       html += `<th class="c-user${mine ? ' mine' : ''}"><div class="uh"><span>${esc(label)}</span><span class="udot" style="background:${esc(u.colore)}"></span></div></th>`;
     });
+    html += '<th class="c-note">NOTE / DESIDERATA</th>';
     html += '</tr></thead><tbody>';
 
     for (let d = 1; d <= ndays; d++) {
@@ -212,12 +216,15 @@
         if (editable) cls.push('editable');
         html += `<td class="${cls.join(' ')}" data-email="${esc(e)}" data-giorno="${giorno}">${has ? '<span class="mark">✕</span>' : ''}</td>`;
       });
+      const nota = state.notes[giorno] || '';
+      html += `<td class="c-note note" data-giorno="${giorno}">${nota ? esc(nota) : '<span class="note-ph">+ nota</span>'}</td>`;
       html += '</tr>';
     }
 
     html += '</tbody><tfoot><tr>';
     html += '<td class="c-num"></td><td class="c-wday tot-label">TOTALE</td>';
     users.forEach(u => { html += `<td>${totals[lower(u.email)] || 0}</td>`; });
+    html += '<td class="c-note"></td>';
     html += '</tr></tfoot></table>';
 
     $('table-wrap').innerHTML = html;
@@ -239,6 +246,8 @@
   }
 
   function onTableClick(e) {
+    const noteTd = e.target.closest && e.target.closest('td.note');
+    if (noteTd) { openNoteEditor(noteTd.dataset.giorno); return; }
     const td = e.target.closest && e.target.closest('td.cell.editable');
     if (!td) return;
     toggleCell(td.dataset.email, td.dataset.giorno);
@@ -259,6 +268,28 @@
         : '✏️ <b>Modalita\' modifica</b> — tocca le caselle della <b>tua colonna</b> (evidenziata) per inserire o togliere il turno. Premi <b>Ho finito</b> quando hai terminato.';
     }
     render();
+  }
+
+  // ============================================================
+  //  NOTE DEL GIORNO (colonna condivisa)
+  // ============================================================
+  function openNoteEditor(giorno) {
+    state.editingNote = giorno;
+    const d = parseInt(giorno.split('-')[2], 10);
+    const date = new Date(state.year, state.month, d);
+    $('note-day-label').textContent = `${GIORNI[date.getDay()]} ${d} ${MESI[state.month].toLowerCase()} ${state.year}`;
+    $('note-text').value = state.notes[giorno] || '';
+    $('modal-note').classList.remove('hidden');
+    setTimeout(() => $('note-text').focus(), 40);
+  }
+  function closeNote() { $('modal-note').classList.add('hidden'); state.editingNote = null; }
+  async function doSaveNote() {
+    const g = state.editingNote; if (!g) return closeNote();
+    const testo = $('note-text').value;
+    if (testo.trim()) state.notes[g] = testo.trim(); else delete state.notes[g];
+    render(); closeNote();
+    try { await DB.saveNote(g, testo, state.me.email); }
+    catch (e) { console.error(e); toast('Errore nel salvataggio della nota', true); loadMonth(); }
   }
 
   // ============================================================
@@ -361,7 +392,14 @@
     $('btn-admin-close').addEventListener('click', closeAdmin);
     $('modal-admin').addEventListener('click', (e) => { if (e.target.id === 'modal-admin') closeAdmin(); });
     $('admin-form').addEventListener('submit', addUser);
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAdmin(); });
+
+    $('btn-note-save').addEventListener('click', doSaveNote);
+    $('btn-note-cancel').addEventListener('click', closeNote);
+    $('btn-note-close').addEventListener('click', closeNote);
+    $('modal-note').addEventListener('click', (e) => { if (e.target.id === 'modal-note') closeNote(); });
+    $('note-text').addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') doSaveNote(); });
+
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeAdmin(); closeNote(); } });
   }
 
   function boot() {

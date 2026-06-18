@@ -132,3 +132,23 @@ begin
   begin alter publication supabase_realtime add table public.utenti_autorizzati; exception when others then null; end;
 end
 $rt$;
+
+-- ---------- Note per giorno (colonna condivisa "NOTE / DESIDERATA") ----------
+create table if not exists public.note_giorni (
+  giorno     date primary key,
+  testo      text not null default '',
+  updated_by text,
+  updated_at timestamptz not null default now()
+);
+alter table public.note_giorni enable row level security;
+drop policy if exists note_select on public.note_giorni;
+drop policy if exists note_write  on public.note_giorni;
+create policy note_select on public.note_giorni for select to authenticated using (public.email_autorizzata());
+create policy note_write  on public.note_giorni for all    to authenticated using (public.email_autorizzata()) with check (public.email_autorizzata());
+grant select, insert, update, delete on public.note_giorni to authenticated;
+grant all on public.note_giorni to service_role;
+do $rtn$
+begin
+  begin alter publication supabase_realtime add table public.note_giorni; exception when others then null; end;
+end
+$rtn$;
