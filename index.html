@@ -61,7 +61,7 @@
             <span class="ico">⚠</span><span>Update</span>
           </button>
           <div class="actions-grid">
-            <button id="btn-sync" class="icon-btn" type="button" disabled title="Sincronizza con Google Calendar (prossimamente)">📅</button>
+            <button id="btn-sync" class="icon-btn" type="button" title="Sincronizza con Google Calendar">📅</button>
             <button id="btn-pdf" class="icon-btn" type="button" disabled title="Genera PDF turni (prossimamente)">📄</button>
             <button id="btn-admin" class="icon-btn hidden" type="button" title="Gestione turnisti">⚙️</button>
             <button id="btn-logout" class="icon-btn" type="button" title="Esci">⎋</button>
@@ -114,6 +114,39 @@
     </div>
   </div>
 
+  <!-- ============ MODAL sincronizza Google Calendar ============ -->
+  <div id="modal-sync" class="modal hidden">
+    <div class="modal-card modal-sync-card">
+      <button id="btn-sync-close" class="modal-x" type="button" aria-label="Chiudi">×</button>
+      <h3>📅 Sincronizza con Google Calendar</h3>
+      <div id="sync-intro">
+        <p class="modal-sub">Verranno sincronizzati <b>solo i tuoi turni</b> di <b id="sync-mese"></b> nel calendario <b>«TURNI PALOMBARA»</b> del tuo Google Calendar (creato in automatico se non esiste).</p>
+        <div class="sync-color-label">Scegli il colore con cui vedrai i turni:</div>
+        <div id="sync-colors" class="sync-colors"></div>
+        <p id="sync-nodata" class="muted sync-nodata hidden">Non hai turni inseriti in questo mese.</p>
+      </div>
+      <div id="sync-progress" class="sync-progress hidden">
+        <div class="sync-spinner"></div>
+        <div id="sync-phase" class="sync-phase">Autorizzazione Google…</div>
+        <div id="sync-count" class="sync-count"></div>
+        <div class="sync-hint muted">Se compare un popup di Google, autorizza l'accesso al calendario.</div>
+      </div>
+      <div id="sync-done" class="sync-done hidden">
+        <div class="sync-ok">✓ Sincronizzazione completata</div>
+        <div id="sync-stats" class="sync-stats"></div>
+        <a href="https://calendar.google.com/" target="_blank" rel="noopener" class="sync-open">Apri Google Calendar ↗</a>
+      </div>
+      <div id="sync-error" class="sync-error hidden">
+        <div class="sync-err-title">⚠️ Sincronizzazione non riuscita</div>
+        <div id="sync-err-msg" class="sync-err-msg"></div>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-sync-go" class="btn" type="button">Sincronizza</button>
+        <button id="btn-sync-cancel" class="btn btn-ghost" type="button">Annulla</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
 
   <!-- Toast aggiornamento (centrato) -->
@@ -135,6 +168,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js"></script>
   <script src="js/db.js"></script>
+  <script src="js/gcal.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

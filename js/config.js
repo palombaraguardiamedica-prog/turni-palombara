@@ -13,6 +13,9 @@ window.APP_CONFIG = {
   // --- Admin perpetuo non eliminabile ---
   ADMIN_EMAIL: 'marabelli.s@gmail.com',
 
+  // --- Google Calendar (stesso Client OAuth del login) ---
+  GOOGLE_CLIENT_ID: '1071846905389-2dtmamkl0hp4cudvnevh6soh4hng0g29.apps.googleusercontent.com',
+
   // --- Festivi locali aggiuntivi (oltre a domeniche + festivi nazionali) ---
   //  Formato 'MM-DD'. Es. patrono di Palombara: ['09-08']
   FESTIVI_LOCALI: []

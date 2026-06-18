@@ -99,7 +99,7 @@ body {
 .edit-hint b { color: var(--green-dd); }
 
 .app-main { flex: 1 1 auto; overflow: hidden; position: relative; min-height: 0; }
-.table-wrap { height: 100%; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+.table-wrap { height: 100%; overflow: auto; overscroll-behavior: contain; }
 
 /* ---------- Tabella turni ---------- */
 table.turni { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 14px; }
@@ -107,7 +107,7 @@ table.turni th, table.turni td { border-right: 1px solid var(--line); border-bot
 
 /* header colonne */
 table.turni thead th {
-  position: sticky; top: 0; z-index: 5;
+  position: sticky; top: 0; z-index: 20;
   background: var(--green-d); color: #fff; font-weight: 700;
   padding: 8px 10px; text-align: center; white-space: nowrap;
 }
@@ -115,9 +115,9 @@ table.turni thead th .uh { display: flex; flex-direction: column; align-items: c
 table.turni thead th .udot { width: 22px; height: 4px; border-radius: 3px; background: #fff; }
 
 /* colonne sinistre fisse */
-.c-num  { position: sticky; left: 0; z-index: 6; width: 46px; min-width: 46px; }
-.c-wday { position: sticky; left: 46px; z-index: 6; width: 116px; min-width: 116px; text-align: left; }
-thead th.c-num, thead th.c-wday { z-index: 7; }
+.c-num  { position: sticky; left: 0; z-index: 15; width: 46px; min-width: 46px; }
+.c-wday { position: sticky; left: 46px; z-index: 15; width: 116px; min-width: 116px; text-align: left; }
+thead th.c-num, thead th.c-wday { z-index: 25; }
 
 td.c-num {
   text-align: center; font-weight: 700; background: var(--card);
@@ -156,8 +156,8 @@ th.mine, td.cell.mine { outline: 2px solid rgba(63,125,87,.0); }
 body.editing th.mine { background: var(--green); }
 
 /* riga totali */
-tfoot td { position: sticky; bottom: 0; z-index: 5; background: var(--green-head); font-weight: 800; color: var(--green-dd); text-align: center; padding: 9px 8px; }
-tfoot td.c-foot-left { position: sticky; left: 0; bottom: 0; z-index: 6; text-align: left; padding: 4px 8px; }
+tfoot td { position: sticky; bottom: 0; z-index: 20; background: var(--green-head); font-weight: 800; color: var(--green-dd); text-align: center; padding: 9px 8px; }
+tfoot td.c-foot-left { position: sticky; left: 0; bottom: 0; z-index: 25; text-align: left; padding: 4px 8px; }
 .foot-left-inner { display: flex; align-items: center; gap: 6px; }
 .foot-left-inner .tot-label { margin-left: auto; font-weight: 800; color: var(--green-dd); padding-right: 4px; }
 
@@ -233,6 +233,27 @@ tfoot td.c-note { background: var(--green-head); }
 }
 .modal-actions { display: flex; gap: 10px; margin-top: 14px; }
 .modal-actions .btn { flex: 1; }
+
+/* ---------- Sincronizza Google Calendar ---------- */
+.modal-sync-card { max-width: 460px; }
+.sync-color-label { font-size: 13px; font-weight: 600; color: var(--green-dd); margin: 14px 0 8px; }
+.sync-colors { display: flex; flex-wrap: wrap; gap: 8px; }
+.sync-sw { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line-strong); transition: transform .1s; padding: 0; }
+.sync-sw.sel { transform: scale(1.15); border: 3px solid var(--green-dd); box-shadow: 0 0 0 1px var(--green-dd); }
+.sync-nodata { font-size: 13px; margin-top: 12px; }
+.sync-progress { text-align: center; padding: 16px 0 6px; }
+.sync-spinner { width: 42px; height: 42px; border: 4px solid var(--green-tint); border-top-color: var(--green); border-radius: 50%; animation: uoSpin .9s linear infinite; margin: 0 auto 14px; }
+.sync-phase { font-weight: 700; color: var(--green-dd); }
+.sync-count { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.sync-hint { font-size: 12px; margin-top: 10px; }
+.sync-done { text-align: center; padding: 6px 0; }
+.sync-ok { font-weight: 800; color: var(--green-dd); font-size: 16px; margin-bottom: 12px; }
+.sync-stats { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; font-size: 13px; }
+.sync-stats span { background: var(--green-tint); border-radius: 8px; padding: 6px 10px; font-weight: 700; color: var(--green-dd); }
+.sync-open { display: inline-block; margin-top: 14px; color: var(--green-d); font-weight: 700; text-decoration: none; }
+.sync-error { text-align: center; padding: 8px 0; }
+.sync-err-title { font-weight: 800; color: var(--danger); }
+.sync-err-msg { font-size: 12.5px; color: var(--muted); margin-top: 8px; word-break: break-word; }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 640px) {

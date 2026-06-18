@@ -49,7 +49,7 @@
 
   const state = {
     session: null, me: null, isAdmin: false,
-    users: [], turni: new Set(), saved: new Set(), dirty: false, notes: {}, editingNote: null,
+    users: [], turni: new Set(), saved: new Set(), dirty: false, notes: {}, editingNote: null, syncColor: null,
     year: new Date().getFullYear(), month: new Date().getMonth(),
     editMode: false, channel: null, _initedFor: null, _reloadTimer: null,
     _localSha: null, _updateAvail: false, _toastDismissed: false, _verChannel: null, _verPollId: null
@@ -334,6 +334,71 @@
   }
 
   // ============================================================
+  //  SINCRONIZZA CON GOOGLE CALENDAR
+  // ============================================================
+  function myMonthDates() {
+    const me = lower(state.me.email);
+    return [...state.saved]
+      .filter(k => k.slice(0, k.indexOf('|')) === me)
+      .map(k => k.slice(k.indexOf('|') + 1)).sort();
+  }
+  function syncSetStep(step) {
+    $('sync-intro').classList.toggle('hidden', step !== 'intro');
+    $('sync-progress').classList.toggle('hidden', step !== 'syncing');
+    $('sync-done').classList.toggle('hidden', step !== 'done');
+    $('sync-error').classList.toggle('hidden', step !== 'error');
+    const go = $('btn-sync-go'), cancel = $('btn-sync-cancel');
+    if (step === 'intro') { go.classList.remove('hidden'); go.textContent = 'Sincronizza'; go.disabled = !myMonthDates().length; cancel.classList.remove('hidden'); cancel.textContent = 'Annulla'; }
+    else if (step === 'syncing') { go.classList.add('hidden'); cancel.classList.add('hidden'); }
+    else if (step === 'done') { go.classList.add('hidden'); cancel.classList.remove('hidden'); cancel.textContent = 'Chiudi'; }
+    else { go.classList.remove('hidden'); go.textContent = 'Riprova'; go.disabled = false; cancel.classList.remove('hidden'); cancel.textContent = 'Chiudi'; }
+  }
+  function renderSyncColors() {
+    const box = $('sync-colors'); box.innerHTML = '';
+    const saved = GCAL.getSavedColor();
+    if (!state.syncColor) state.syncColor = (saved && GCAL.CAL_COLORS.some(c => c.colorId === saved)) ? saved : GCAL.CAL_COLORS[0].colorId;
+    GCAL.CAL_COLORS.forEach(c => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'sync-sw' + (c.colorId === state.syncColor ? ' sel' : '');
+      b.style.background = c.hex; b.title = c.nome;
+      b.addEventListener('click', () => { state.syncColor = c.colorId; renderSyncColors(); });
+      box.appendChild(b);
+    });
+  }
+  function openSync() {
+    if (!CONFIG.GOOGLE_CLIENT_ID) { toast('Google non configurato (manca il Client ID).', true); return; }
+    $('sync-mese').textContent = `${MESI[state.month]} ${state.year}`;
+    $('sync-nodata').classList.toggle('hidden', myMonthDates().length > 0);
+    renderSyncColors();
+    syncSetStep('intro');
+    $('modal-sync').classList.remove('hidden');
+  }
+  function closeSync() { $('modal-sync').classList.add('hidden'); }
+  const SYNC_PHASE = { auth: 'Autorizzazione Google…', calendar: 'Preparo il calendario «TURNI PALOMBARA»…', reading: 'Leggo i turni già presenti…', writing: 'Aggiorno i turni…', done: 'Completato' };
+  async function doSync() {
+    const dates = myMonthDates();
+    if (!dates.length) { toast('Nessun turno da sincronizzare in questo mese.', true); return; }
+    syncSetStep('syncing');
+    $('sync-phase').textContent = SYNC_PHASE.auth; $('sync-count').textContent = '';
+    try {
+      const res = await GCAL.syncMonth({
+        clientId: CONFIG.GOOGLE_CLIENT_ID, email: lower(state.me.email),
+        year: state.year, month: state.month, dates, colorId: state.syncColor,
+        onProgress: (p) => {
+          $('sync-phase').textContent = SYNC_PHASE[p.phase] || 'Sincronizzazione…';
+          $('sync-count').textContent = (p.phase === 'writing' && p.total != null) ? `${p.done || 0} / ${p.total}` : '';
+        }
+      });
+      $('sync-stats').innerHTML = `<span>Creati ${res.created}</span><span>Aggiornati ${res.updated}</span><span>Eliminati ${res.deleted}</span><span>Invariati ${res.unchanged}</span>`;
+      syncSetStep('done');
+    } catch (e) {
+      console.error(e);
+      $('sync-err-msg').textContent = e.message || 'Errore sconosciuto';
+      syncSetStep('error');
+    }
+  }
+
+  // ============================================================
   //  ADMIN — gestione turnisti
   // ============================================================
   function nextColor(users) {
@@ -464,7 +529,13 @@
     $('modal-note').addEventListener('click', (e) => { if (e.target.id === 'modal-note') closeNote(); });
     $('note-text').addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') doSaveNote(); });
 
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeAdmin(); closeNote(); } });
+    $('btn-sync').addEventListener('click', openSync);
+    $('btn-sync-go').addEventListener('click', doSync);
+    $('btn-sync-cancel').addEventListener('click', closeSync);
+    $('btn-sync-close').addEventListener('click', closeSync);
+    $('modal-sync').addEventListener('click', (e) => { if (e.target.id === 'modal-sync') closeSync(); });
+
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeAdmin(); closeNote(); closeSync(); } });
   }
 
   function boot() {
