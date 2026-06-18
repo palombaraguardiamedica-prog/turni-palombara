@@ -116,7 +116,7 @@ table.turni thead th .udot { width: 22px; height: 4px; border-radius: 3px; backg
 
 /* colonne sinistre fisse */
 .c-num  { position: sticky; left: 0; z-index: 15; width: 46px; min-width: 46px; }
-.c-wday { position: sticky; left: 46px; z-index: 15; width: 116px; min-width: 116px; text-align: left; }
+.c-wday { position: sticky; left: 46px; z-index: 15; width: 116px; min-width: 116px; text-align: left; box-shadow: 6px 0 8px -4px rgba(20,40,30,.25); }
 thead th.c-num, thead th.c-wday { z-index: 25; }
 
 td.c-num {
@@ -127,7 +127,7 @@ td.c-wday {
   text-align: left; padding: 6px 10px; background: var(--green-tint); color: var(--ink);
   white-space: nowrap; text-transform: capitalize;
 }
-tr.is-today td.c-wday { box-shadow: inset 3px 0 0 var(--green); font-weight: 700; }
+tr.is-today td.c-wday { box-shadow: inset 3px 0 0 var(--green), 6px 0 8px -4px rgba(20,40,30,.25); font-weight: 700; }
 .red td.c-wday, td.c-wday.red { color: var(--red); font-weight: 700; }
 
 /* stato del giorno sulla cella numero */
@@ -157,7 +157,7 @@ body.editing th.mine { background: var(--green); }
 
 /* riga totali */
 tfoot td { position: sticky; bottom: 0; z-index: 20; background: var(--green-head); font-weight: 800; color: var(--green-dd); text-align: center; padding: 9px 8px; }
-tfoot td.c-foot-left { position: sticky; left: 0; bottom: 0; z-index: 25; text-align: left; padding: 4px 8px; }
+tfoot td.c-foot-left { position: sticky; left: 0; bottom: 0; z-index: 25; text-align: left; padding: 4px 8px; box-shadow: 6px 0 8px -4px rgba(20,40,30,.25); }
 .foot-left-inner { display: flex; align-items: center; gap: 6px; }
 .foot-left-inner .tot-label { margin-left: auto; font-weight: 800; color: var(--green-dd); padding-right: 4px; }
 
