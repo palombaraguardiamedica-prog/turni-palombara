@@ -222,7 +222,10 @@
     }
 
     html += '</tbody><tfoot><tr>';
-    html += '<td class="c-num"></td><td class="c-wday tot-label">TOTALE</td>';
+    html += '<td class="c-foot-left" colspan="2"><div class="foot-left-inner">'
+      + '<button id="btn-sync" class="foot-feat" type="button" disabled title="Sincronizza con Google Calendar (prossimamente)">📅</button>'
+      + '<button id="btn-pdf" class="foot-feat" type="button" disabled title="Genera PDF turni (prossimamente)">📄</button>'
+      + '<span class="tot-label">TOTALE</span></div></td>';
     users.forEach(u => { html += `<td>${totals[lower(u.email)] || 0}</td>`; });
     html += '<td class="c-note"></td>';
     html += '</tr></tfoot></table>';
@@ -316,8 +319,11 @@
       const row = document.createElement('div'); row.className = 'user-row';
       row.innerHTML =
         `<input type="color" value="${esc(u.colore)}" title="Colore colonna">
-         <input type="number" class="ord" value="${u.ordine != null ? u.ordine : 100}" min="0" step="1" title="Ordine colonna: numero piu' basso = colonna piu' a sinistra" style="width:58px">
-         <div class="info"><div class="n">${esc(name)}</div><div class="e">${esc(u.email)}</div></div>
+         <input type="number" class="ord" value="${u.ordine != null ? u.ordine : 100}" min="0" step="1" title="Ordine colonna: numero piu' basso = colonna piu' a sinistra" style="width:54px">
+         <div class="info">
+           <input class="u-name" type="text" value="${esc(name)}" placeholder="Nome / etichetta">
+           <input class="u-mail" type="email" value="${esc(u.email)}" autocomplete="off" ${isPerma ? 'readonly title="Email admin non modificabile"' : ''}>
+         </div>
          <span class="tag ${u.attivo ? '' : 'off'}">${u.ruolo === 'admin' ? 'admin' : (u.attivo ? 'attivo' : 'disattivo')}</span>`;
       row.querySelector('input[type=color]').addEventListener('change', async (ev) => {
         try { await DB.updateUser(u.email, { colore: ev.target.value }); loadMonth(); }
@@ -328,6 +334,26 @@
         try { await DB.updateUser(u.email, { ordine: v }); renderUserList(await DB.listUsers()); loadMonth(); }
         catch (e) { toast('Errore', true); }
       });
+      const nameInp = row.querySelector('.u-name');
+      nameInp.addEventListener('change', async () => {
+        try { await DB.updateUser(u.email, { nome: nameInp.value.trim() }); loadMonth(); }
+        catch (e) { toast('Errore', true); }
+      });
+      const mailInp = row.querySelector('.u-mail');
+      if (!isPerma) {
+        mailInp.addEventListener('change', async () => {
+          const v = lower(mailInp.value);
+          if (!v || v === lower(u.email)) { mailInp.value = u.email; return; }
+          if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { toast('Email non valida', true); mailInp.value = u.email; return; }
+          try {
+            await DB.updateUser(u.email, { email: v });
+            toast('Email aggiornata ✓'); renderUserList(await DB.listUsers()); loadMonth();
+          } catch (err) {
+            console.error(err);
+            toast(err.code === '23505' ? 'Email gia\' presente' : 'Errore', true); mailInp.value = u.email;
+          }
+        });
+      }
       if (isPerma) {
         const lock = document.createElement('span'); lock.className = 'lock'; lock.textContent = '🔒'; lock.title = 'Admin perpetuo';
         row.appendChild(lock);

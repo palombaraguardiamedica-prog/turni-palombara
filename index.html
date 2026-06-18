@@ -45,14 +45,17 @@
   <div id="app" class="hidden">
     <header class="app-header">
       <div class="topbar">
-        <div class="brand"><span class="brand-ico">🩺</span> Turni Palombara</div>
+        <div class="brand"><span class="brand-ico">🩺</span><span class="brand-txt">Turni Palombara</span></div>
+        <div class="topcenter">
+          <div class="monthnav">
+            <button id="btn-prev" class="nav-btn" aria-label="Mese precedente">‹</button>
+            <div id="month-label" class="month-label">—</div>
+            <button id="btn-next" class="nav-btn" aria-label="Mese successivo">›</button>
+            <button id="btn-today" class="today-btn" type="button">Oggi</button>
+          </div>
+          <button id="btn-edit" class="btn btn-edit" type="button">✏️ Inserisci disponibilita' del mese</button>
+        </div>
         <div class="actions">
-          <button id="btn-sync" class="feat-btn" type="button" disabled title="Prossimamente">
-            <span class="fi">📅</span><span class="ft">Sincronizza con Google Calendar</span>
-          </button>
-          <button id="btn-pdf" class="feat-btn" type="button" disabled title="Prossimamente">
-            <span class="fi">📄</span><span class="ft">Genera PDF turni</span>
-          </button>
           <button id="btn-update" class="update-badge hidden" type="button" title="Nuovo aggiornamento — ricarica">
             <span class="ico">⚠</span><span>Update</span>
           </button>
@@ -60,17 +63,6 @@
           <button id="btn-logout" class="icon-btn" type="button" title="Esci">⎋</button>
         </div>
       </div>
-
-      <div class="toolbar">
-        <div class="monthnav">
-          <button id="btn-prev" class="nav-btn" aria-label="Mese precedente">‹</button>
-          <div id="month-label" class="month-label">—</div>
-          <button id="btn-next" class="nav-btn" aria-label="Mese successivo">›</button>
-          <button id="btn-today" class="today-btn" type="button">Oggi</button>
-        </div>
-        <button id="btn-edit" class="btn btn-edit" type="button">✏️ Inserisci disponibilita' del mese</button>
-      </div>
-
       <div id="edit-hint" class="edit-hint hidden"></div>
     </header>
 

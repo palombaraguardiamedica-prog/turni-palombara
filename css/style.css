@@ -26,11 +26,12 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { height: 100%; margin: 0; }
+html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background: var(--bg);
   color: var(--ink);
+  position: fixed; left: 0; right: 0; top: 0; bottom: 0;   /* blocca scroll pagina e pull-to-refresh */
 }
 .hidden { display: none !important; }
 .muted { color: var(--muted); }
@@ -65,42 +66,35 @@ body {
 
 /* ---------- App shell ---------- */
 #app { display: flex; flex-direction: column; height: 100dvh; }
-.app-header { flex: 0 0 auto; background: var(--card); border-bottom: 1px solid var(--line-strong); }
+.app-header { flex: 0 0 auto; }
 
 .topbar {
   display: flex; align-items: center; gap: 10px;
   background: linear-gradient(180deg, var(--green), var(--green-d));
-  color: #fff; padding: 8px 12px;
+  color: #fff; padding: 6px 10px;
 }
-.brand { font-size: 16px; font-weight: 800; letter-spacing: .2px; display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.brand { flex: 0 0 auto; font-size: 15.5px; font-weight: 800; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .brand-ico { font-size: 18px; }
-.actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.topcenter { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.actions { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
+.icon-btn { background: rgba(255,255,255,.18); color: #fff; border: none; width: 34px; height: 34px; border-radius: 9px; font-size: 16px; cursor: pointer; }
+.icon-btn:hover { background: rgba(255,255,255,.3); }
 
-.feat-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  background: rgba(255,255,255,.16); color: #fff; border: 1px solid rgba(255,255,255,.25);
-  border-radius: 10px; padding: 7px 11px; font-size: 12.5px; font-weight: 600; cursor: pointer;
-}
-.feat-btn:disabled { opacity: .55; cursor: not-allowed; }
-.feat-btn .fi { font-size: 14px; }
-.icon-btn { background: rgba(255,255,255,.16); color: #fff; border: none; width: 36px; height: 36px; border-radius: 10px; font-size: 17px; cursor: pointer; }
-.icon-btn:hover { background: rgba(255,255,255,.28); }
+.monthnav { display: flex; align-items: center; gap: 6px; }
+.nav-btn { background: rgba(255,255,255,.18); color: #fff; border: none; width: 32px; height: 32px; border-radius: 9px; font-size: 20px; line-height: 1; cursor: pointer; }
+.nav-btn:hover { background: rgba(255,255,255,.3); }
+.month-label { font-size: 16px; font-weight: 800; color: #fff; min-width: 150px; text-align: center; letter-spacing: .3px; }
+.today-btn { background: rgba(255,255,255,.16); border: none; color: #fff; font-size: 12px; cursor: pointer; padding: 6px 10px; border-radius: 8px; }
+.today-btn:hover { background: rgba(255,255,255,.3); }
+.btn-edit { background: #fff; color: var(--green-d); padding: 8px 14px; font-weight: 700; }
+.btn-edit:hover { filter: none; background: #eef5f0; }
+.btn-edit.on { background: var(--danger); color: #fff; }
 
-.toolbar { display: flex; align-items: center; gap: 12px; padding: 9px 12px; flex-wrap: wrap; }
-.monthnav { display: flex; align-items: center; gap: 8px; }
-.nav-btn { background: var(--green-tint); color: var(--green-dd); border: 1px solid var(--line); width: 36px; height: 36px; border-radius: 10px; font-size: 22px; line-height: 1; cursor: pointer; }
-.nav-btn:hover { background: var(--green-head); }
-.month-label { font-size: 17px; font-weight: 800; color: var(--green-dd); min-width: 168px; text-align: center; letter-spacing: .3px; }
-.today-btn { background: none; border: 1px solid var(--line-strong); color: var(--green-d); font-size: 12.5px; cursor: pointer; padding: 6px 11px; border-radius: 8px; }
-.today-btn:hover { background: var(--green-tint); }
-.btn-edit { margin-left: auto; }
-.btn-edit.on { background: var(--danger); }
-
-.edit-hint { font-size: 13px; color: var(--green-dd); background: var(--green-tint); border-top: 1px solid var(--line); padding: 8px 14px; }
+.edit-hint { font-size: 13px; color: var(--green-dd); background: var(--green-tint); border-top: 1px solid var(--line); padding: 7px 14px; }
 .edit-hint b { color: var(--green-dd); }
 
-.app-main { flex: 1 1 auto; overflow: hidden; position: relative; }
-.table-wrap { height: 100%; overflow: auto; -webkit-overflow-scrolling: touch; }
+.app-main { flex: 1 1 auto; overflow: hidden; position: relative; min-height: 0; }
+.table-wrap { height: 100%; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 
 /* ---------- Tabella turni ---------- */
 table.turni { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 14px; }
@@ -158,8 +152,11 @@ body.editing th.mine { background: var(--green); }
 
 /* riga totali */
 tfoot td { position: sticky; bottom: 0; z-index: 5; background: var(--green-head); font-weight: 800; color: var(--green-dd); text-align: center; padding: 9px 8px; }
-tfoot td.c-num, tfoot td.c-wday { z-index: 6; text-transform: none; text-align: right; padding-right: 12px; background: var(--green-head); }
-tfoot td.tot-label { text-align: right; }
+tfoot td.c-foot-left { position: sticky; left: 0; bottom: 0; z-index: 6; text-align: left; padding: 4px 8px; }
+.foot-left-inner { display: flex; align-items: center; gap: 6px; }
+.foot-left-inner .tot-label { margin-left: auto; font-weight: 800; color: var(--green-dd); padding-right: 4px; }
+.foot-feat { background: #fff; border: 1px solid var(--line); border-radius: 8px; width: 30px; height: 30px; font-size: 15px; line-height: 1; cursor: pointer; padding: 0; }
+.foot-feat:disabled { opacity: .55; cursor: not-allowed; }
 
 /* ---------- Modal ---------- */
 .modal { position: fixed; inset: 0; background: rgba(20, 35, 28, .5); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
@@ -178,9 +175,11 @@ tfoot td.tot-label { text-align: right; }
 .user-list { display: flex; flex-direction: column; gap: 8px; }
 .user-row { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; }
 .user-row input[type=color] { width: 22px; height: 22px; border: none; background: none; padding: 0; border-radius: 6px; flex: 0 0 auto; cursor: pointer; }
-.user-row .info { flex: 1; min-width: 0; }
-.user-row .info .n { font-weight: 700; font-size: 14.5px; }
-.user-row .info .e { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-row .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.user-row .info input { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 13px; background: #fff; color: var(--ink); }
+.user-row .info .u-name { font-weight: 700; }
+.user-row .info .u-mail { font-size: 12px; color: var(--muted); }
+.user-row .info .u-mail[readonly] { background: #eef1ee; cursor: not-allowed; }
 .user-row .tag { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: var(--green-tint); color: var(--green-d); }
 .user-row .tag.off { background: #efe9e9; color: var(--muted); }
 .user-row button { border: none; background: #eef2ef; border-radius: 8px; padding: 7px 9px; font-size: 14px; cursor: pointer; }
@@ -234,12 +233,11 @@ tfoot td.c-note { background: var(--green-head); }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 640px) {
-  .feat-btn .ft { display: none; }
-  .feat-btn { padding: 7px 9px; }
-  .brand { font-size: 14.5px; }
-  .month-label { font-size: 15.5px; min-width: 132px; }
-  .btn-edit { font-size: 13px; padding: 10px 12px; width: 100%; margin-top: 4px; }
-  .c-wday { width: 92px; min-width: 92px; }
-  td.cell { width: 60px; min-width: 60px; }
-  .c-note { min-width: 150px; }
+  .brand-txt { display: none; }
+  .month-label { font-size: 15px; min-width: 116px; }
+  .today-btn { padding: 6px 8px; }
+  .btn-edit { font-size: 12.5px; padding: 8px 10px; }
+  .c-wday { width: 90px; min-width: 90px; }
+  td.cell { width: 58px; min-width: 58px; }
+  .c-note { min-width: 140px; }
 }
