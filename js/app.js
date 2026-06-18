@@ -285,7 +285,7 @@
       const row = document.createElement('div'); row.className = 'user-row';
       row.innerHTML =
         `<input type="color" value="${esc(u.colore)}" title="Colore colonna">
-         <input type="number" class="ord" value="${u.ordine != null ? u.ordine : 100}" min="0" step="1" title="Ordine colonna" style="width:58px">
+         <input type="number" class="ord" value="${u.ordine != null ? u.ordine : 100}" min="0" step="1" title="Ordine colonna: numero piu' basso = colonna piu' a sinistra" style="width:58px">
          <div class="info"><div class="n">${esc(name)}</div><div class="e">${esc(u.email)}</div></div>
          <span class="tag ${u.attivo ? '' : 'off'}">${u.ruolo === 'admin' ? 'admin' : (u.attivo ? 'attivo' : 'disattivo')}</span>`;
       row.querySelector('input[type=color]').addEventListener('change', async (ev) => {
@@ -323,7 +323,10 @@
     const nome = $('u-nome').value.trim(), email = $('u-email').value.trim();
     if (!email) { toast('Inserisci un\'email', true); return; }
     try {
-      await DB.addUser({ nome, email, colore: $('u-colore').value, ruolo: $('u-ruolo').value, ordine: parseInt($('u-ordine').value, 10) || 100 });
+      // ordine automatico: il nuovo turnista va in fondo (colonna piu' a destra)
+      const all = await DB.listUsers();
+      const nextOrd = all.reduce((m, u) => Math.max(m, u.ordine || 0), 0) + 10;
+      await DB.addUser({ nome, email, colore: $('u-colore').value, ruolo: $('u-ruolo').value, ordine: nextOrd });
       $('u-nome').value = ''; $('u-email').value = ''; $('u-ruolo').value = 'membro';
       toast('Turnista aggiunto ✓');
       const users = await DB.listUsers(); renderUserList(users); $('u-colore').value = nextColor(users);
