@@ -49,7 +49,7 @@
 
   const state = {
     session: null, me: null, isAdmin: false,
-    users: [], turni: new Set(), notes: {}, editingNote: null,
+    users: [], turni: new Set(), saved: new Set(), dirty: false, notes: {}, editingNote: null,
     year: new Date().getFullYear(), month: new Date().getMonth(),
     editMode: false, channel: null, _initedFor: null, _reloadTimer: null,
     _localSha: null, _updateAvail: false, _toastDismissed: false, _verChannel: null, _verPollId: null
@@ -95,10 +95,11 @@
     updateMonthLabel();
     if (!state.channel) {
       state.channel = DB.subscribeTurni(() => {
+        if (state.editMode) return;   // non ricaricare mentre modifichi: non perdere le X non salvate
         clearTimeout(state._reloadTimer); state._reloadTimer = setTimeout(loadMonth, 300);
       });
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') loadMonth();
+        if (document.visibilityState === 'visible' && !state.editMode) loadMonth();
       });
     }
     startVersionCheck();
@@ -151,11 +152,13 @@
   // ============================================================
   function updateMonthLabel() { $('month-label').textContent = `${MESI[state.month]} ${state.year}`; }
   function shiftMonth(delta) {
+    if (!guardMonthChange()) return;
     const d = new Date(state.year, state.month + delta, 1);
     state.year = d.getFullYear(); state.month = d.getMonth();
     updateMonthLabel(); loadMonth();
   }
   function goToday() {
+    if (!guardMonthChange()) return;
     const n = new Date(); state.year = n.getFullYear(); state.month = n.getMonth();
     updateMonthLabel(); loadMonth();
   }
@@ -171,6 +174,7 @@
       state.users = users.filter(u => u.attivo)
         .sort((a, b) => (a.ordine - b.ordine) || (a.nome || a.email).localeCompare(b.nome || b.email));
       state.turni = new Set(rows.map(r => lower(r.user_email) + '|' + r.giorno));
+      state.saved = new Set(state.turni); state.dirty = false;
       state.notes = {}; notes.forEach(n => { state.notes[n.giorno] = n.testo; });
       render();
     } catch (e) { console.error(e); toast('Errore nel caricamento', true); }
@@ -223,8 +227,6 @@
 
     html += '</tbody><tfoot><tr>';
     html += '<td class="c-foot-left" colspan="2"><div class="foot-left-inner">'
-      + '<button id="btn-sync" class="foot-feat" type="button" disabled title="Sincronizza con Google Calendar (prossimamente)">📅</button>'
-      + '<button id="btn-pdf" class="foot-feat" type="button" disabled title="Genera PDF turni (prossimamente)">📄</button>'
       + '<span class="tot-label">TOTALE</span></div></td>';
     users.forEach(u => { html += `<td>${totals[lower(u.email)] || 0}</td>`; });
     html += '<td class="c-note"></td>';
@@ -233,20 +235,21 @@
     $('table-wrap').innerHTML = html;
   }
 
-  // ---------- toggle X (scrittura immediata, ottimistica) ----------
-  async function toggleCell(email, giorno) {
+  // ---------- toggle X (locale; salvataggio esplicito con 💾 Salva) ----------
+  function toggleCell(email, giorno) {
     email = lower(email);
-    const key = email + '|' + giorno, had = state.turni.has(key);
-    if (had) state.turni.delete(key); else state.turni.add(key);
+    const key = email + '|' + giorno;
+    if (state.turni.has(key)) state.turni.delete(key); else state.turni.add(key);
+    state.dirty = computeDirty();
+    syncEditButton();
     render();
-    try {
-      if (had) await DB.removeTurno(email, giorno); else await DB.addTurno(email, giorno);
-    } catch (err) {
-      console.error(err);
-      if (had) state.turni.add(key); else state.turni.delete(key);
-      render(); toast('Errore nel salvataggio', true);
-    }
   }
+  function computeDirty() {
+    if (state.turni.size !== state.saved.size) return true;
+    for (const k of state.turni) if (!state.saved.has(k)) return true;
+    return false;
+  }
+  function splitKey(k) { const i = k.indexOf('|'); return [k.slice(0, i), k.slice(i + 1)]; }
 
   function onTableClick(e) {
     const noteTd = e.target.closest && e.target.closest('td.note');
@@ -256,21 +259,56 @@
     toggleCell(td.dataset.email, td.dataset.giorno);
   }
 
-  // ---------- modalita' modifica ----------
-  function toggleEdit() {
-    state.editMode = !state.editMode;
-    document.body.classList.toggle('editing', state.editMode);
+  // ---------- modalita' modifica + salvataggio esplicito ----------
+  function syncEditButton() {
     const btn = $('btn-edit');
-    btn.classList.toggle('on', state.editMode);
-    btn.innerHTML = state.editMode ? '✓ Ho finito' : '✏️ Inserisci disponibilita\' del mese';
-    const hint = $('edit-hint');
-    hint.classList.toggle('hidden', !state.editMode);
-    if (state.editMode) {
-      hint.innerHTML = state.isAdmin
-        ? '✏️ <b>Modalita\' modifica (admin)</b> — tocca le caselle di qualunque colonna per inserire o togliere il turno. Premi <b>Ho finito</b> quando hai terminato.'
-        : '✏️ <b>Modalita\' modifica</b> — tocca le caselle della <b>tua colonna</b> (evidenziata) per inserire o togliere il turno. Premi <b>Ho finito</b> quando hai terminato.';
+    if (!state.editMode) { btn.innerHTML = '✏️ Inserisci disponibilita\' del mese'; btn.classList.remove('dirty', 'on'); return; }
+    btn.classList.add('on');
+    btn.classList.toggle('dirty', state.dirty);
+    btn.innerHTML = state.dirty ? '💾 Salva modifiche' : '✓ Chiudi';
+  }
+  function enterEditMode() {
+    state.editMode = true; state.saved = new Set(state.turni); state.dirty = false;
+    document.body.classList.add('editing');
+    $('btn-edit-cancel').classList.remove('hidden');
+    const hint = $('edit-hint'); hint.classList.remove('hidden');
+    hint.innerHTML = state.isAdmin
+      ? '✏️ <b>Modalita\' modifica (admin)</b> — tocca le caselle di qualunque colonna, poi premi <b>💾 Salva</b> (o Annulla). Finché non salvi non puoi cambiare mese.'
+      : '✏️ <b>Modalita\' modifica</b> — tocca le caselle della <b>tua colonna</b>, poi premi <b>💾 Salva</b> (o Annulla). Finché non salvi non puoi cambiare mese.';
+    syncEditButton(); render();
+  }
+  function exitEditMode() {
+    state.editMode = false; state.dirty = false;
+    document.body.classList.remove('editing');
+    $('btn-edit-cancel').classList.add('hidden');
+    $('edit-hint').classList.add('hidden');
+    syncEditButton(); render();
+  }
+  function cancelEdit() { state.turni = new Set(state.saved); exitEditMode(); }
+  async function doSaveTurni() {
+    const added = [...state.turni].filter(k => !state.saved.has(k));
+    const removed = [...state.saved].filter(k => !state.turni.has(k));
+    if (added.length || removed.length) {
+      $('btn-edit').disabled = true;
+      try {
+        for (const k of added) { const [em, g] = splitKey(k); await DB.addTurno(em, g); }
+        for (const k of removed) { const [em, g] = splitKey(k); await DB.removeTurno(em, g); }
+        toast('Modifiche salvate ✓');
+      } catch (e) { console.error(e); toast('Errore nel salvataggio', true); $('btn-edit').disabled = false; return; }
+      $('btn-edit').disabled = false;
+    } else { toast('Nessuna modifica'); }
+    state.saved = new Set(state.turni); state.dirty = false;
+    exitEditMode();
+    loadMonth();
+  }
+  function onEditButton() { if (state.editMode) doSaveTurni(); else enterEditMode(); }
+  function guardMonthChange() {
+    if (state.editMode && state.dirty) {
+      toast('⚠️ Modifiche non salvate: premi 💾 Salva o Annulla prima di cambiare mese.', true);
+      return false;
     }
-    render();
+    if (state.editMode) exitEditMode();
+    return true;
   }
 
   // ============================================================
@@ -410,7 +448,8 @@
     $('btn-prev').addEventListener('click', () => shiftMonth(-1));
     $('btn-next').addEventListener('click', () => shiftMonth(1));
     $('btn-today').addEventListener('click', goToday);
-    $('btn-edit').addEventListener('click', toggleEdit);
+    $('btn-edit').addEventListener('click', onEditButton);
+    $('btn-edit-cancel').addEventListener('click', cancelEdit);
 
     $('table-wrap').addEventListener('click', onTableClick);
 

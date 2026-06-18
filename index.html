@@ -54,13 +54,18 @@
             <button id="btn-today" class="today-btn" type="button">Oggi</button>
           </div>
           <button id="btn-edit" class="btn btn-edit" type="button">✏️ Inserisci disponibilita' del mese</button>
+          <button id="btn-edit-cancel" class="btn btn-cancel hidden" type="button">Annulla</button>
         </div>
         <div class="actions">
           <button id="btn-update" class="update-badge hidden" type="button" title="Nuovo aggiornamento — ricarica">
             <span class="ico">⚠</span><span>Update</span>
           </button>
-          <button id="btn-admin" class="icon-btn hidden" type="button" title="Gestione turnisti">⚙️</button>
-          <button id="btn-logout" class="icon-btn" type="button" title="Esci">⎋</button>
+          <div class="actions-grid">
+            <button id="btn-sync" class="icon-btn" type="button" disabled title="Sincronizza con Google Calendar (prossimamente)">📅</button>
+            <button id="btn-pdf" class="icon-btn" type="button" disabled title="Genera PDF turni (prossimamente)">📄</button>
+            <button id="btn-admin" class="icon-btn hidden" type="button" title="Gestione turnisti">⚙️</button>
+            <button id="btn-logout" class="icon-btn" type="button" title="Esci">⎋</button>
+          </div>
         </div>
       </div>
       <div id="edit-hint" class="edit-hint hidden"></div>

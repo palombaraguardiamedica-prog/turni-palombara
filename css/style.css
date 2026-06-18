@@ -77,8 +77,10 @@ body {
 .brand-ico { font-size: 18px; }
 .topcenter { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
 .actions { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
+.actions-grid { display: grid; grid-template-columns: repeat(2, auto); gap: 5px; }
 .icon-btn { background: rgba(255,255,255,.18); color: #fff; border: none; width: 34px; height: 34px; border-radius: 9px; font-size: 16px; cursor: pointer; }
-.icon-btn:hover { background: rgba(255,255,255,.3); }
+.icon-btn:hover:not(:disabled) { background: rgba(255,255,255,.3); }
+.icon-btn:disabled { opacity: .5; cursor: not-allowed; }
 
 .monthnav { display: flex; align-items: center; gap: 6px; }
 .nav-btn { background: rgba(255,255,255,.18); color: #fff; border: none; width: 32px; height: 32px; border-radius: 9px; font-size: 20px; line-height: 1; cursor: pointer; }
@@ -88,7 +90,10 @@ body {
 .today-btn:hover { background: rgba(255,255,255,.3); }
 .btn-edit { background: #fff; color: var(--green-d); padding: 8px 14px; font-weight: 700; }
 .btn-edit:hover { filter: none; background: #eef5f0; }
-.btn-edit.on { background: var(--danger); color: #fff; }
+.btn-edit.on { background: #fff; color: var(--green-d); }
+.btn-edit.dirty { background: var(--warn); color: #5b3b00; }
+.btn-cancel { background: rgba(255,255,255,.18); color: #fff; padding: 8px 12px; font-weight: 600; }
+.btn-cancel:hover { filter: none; background: rgba(255,255,255,.3); }
 
 .edit-hint { font-size: 13px; color: var(--green-dd); background: var(--green-tint); border-top: 1px solid var(--line); padding: 7px 14px; }
 .edit-hint b { color: var(--green-dd); }
@@ -111,7 +116,7 @@ table.turni thead th .udot { width: 22px; height: 4px; border-radius: 3px; backg
 
 /* colonne sinistre fisse */
 .c-num  { position: sticky; left: 0; z-index: 6; width: 46px; min-width: 46px; }
-.c-wday { position: sticky; z-index: 6; width: 116px; min-width: 116px; text-align: left; }
+.c-wday { position: sticky; left: 46px; z-index: 6; width: 116px; min-width: 116px; text-align: left; }
 thead th.c-num, thead th.c-wday { z-index: 7; }
 
 td.c-num {
@@ -155,8 +160,6 @@ tfoot td { position: sticky; bottom: 0; z-index: 5; background: var(--green-head
 tfoot td.c-foot-left { position: sticky; left: 0; bottom: 0; z-index: 6; text-align: left; padding: 4px 8px; }
 .foot-left-inner { display: flex; align-items: center; gap: 6px; }
 .foot-left-inner .tot-label { margin-left: auto; font-weight: 800; color: var(--green-dd); padding-right: 4px; }
-.foot-feat { background: #fff; border: 1px solid var(--line); border-radius: 8px; width: 30px; height: 30px; font-size: 15px; line-height: 1; cursor: pointer; padding: 0; }
-.foot-feat:disabled { opacity: .55; cursor: not-allowed; }
 
 /* ---------- Modal ---------- */
 .modal { position: fixed; inset: 0; background: rgba(20, 35, 28, .5); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
