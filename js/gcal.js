@@ -14,7 +14,10 @@
   const CAL_SUMMARY = 'TURNI PALOMBARA';
   const TZ = 'Europe/Rome';
   const APP_TAG = 'turni-palombara';
-  const EVENT_TITLE = 'Guardia medica';
+  // Ogni giorno di turno = turno notturno: "Notte Palombara" 20-22 (stesso
+  // giorno) + "SN" (smonto notte) 08-10 il mattino dopo.
+  const NIGHT = { title: 'Notte Palombara', start: '20:00', end: '22:00' };
+  const SN = { title: 'SN', start: '08:00', end: '10:00' };
   const LS_HINT = 'turni_palombara_gcal_id';
   const LS_COLOR = 'turni_palombara_gcal_color';
 
@@ -132,23 +135,41 @@
     return created.id;
   }
 
-  // ---------- eventi (id deterministico, all-day) ----------
+  // ---------- eventi (id deterministico legato al giorno del turno) ----------
   function toHex(s) { let o = ''; for (let i = 0; i < s.length; i++) o += s.charCodeAt(i).toString(16).padStart(2, '0'); return o; }
-  function eventId(email, giorno) { return 'tp' + toHex(email.toLowerCase()) + giorno.replace(/-/g, ''); }
+  function nightId(email, giorno) { return 'tpn' + toHex(email.toLowerCase()) + giorno.replace(/-/g, ''); }
+  function snId(email, giorno) { return 'tps' + toHex(email.toLowerCase()) + giorno.replace(/-/g, ''); }
   function nextDay(giorno) { const [y, m, d] = giorno.split('-').map(Number); const dt = new Date(y, m - 1, d + 1); return dt.getFullYear() + '-' + pad2(dt.getMonth() + 1) + '-' + pad2(dt.getDate()); }
-  function eventBody(email, giorno, colorId) {
+
+  // Per ogni giorno di turno: "Notte Palombara" 20-22 (stesso giorno) +
+  // "SN" 08-10 (mattino dopo). L'id e' legato al GIORNO DEL TURNO (non alla
+  // data dell'evento): cosi' togliendo la X spariscono entrambi.
+  function buildDesired(email, dates, colorId) {
+    const m = new Map();
+    for (const g of dates) {
+      m.set(nightId(email, g), { id: nightId(email, g), date: g, start: NIGHT.start, end: NIGHT.end, title: NIGHT.title, sig: 'notte|c' + colorId });
+      m.set(snId(email, g), { id: snId(email, g), date: nextDay(g), start: SN.start, end: SN.end, title: SN.title, sig: 'sn|c' + colorId });
+    }
+    return m;
+  }
+  function eventBody(d, colorId, monthKey) {
     return {
-      id: eventId(email, giorno), summary: EVENT_TITLE, colorId: colorId,
-      start: { date: giorno }, end: { date: nextDay(giorno) },
-      extendedProperties: { private: { app: APP_TAG, sig: 'c' + colorId } },
-      reminders: { useDefault: false }, transparency: 'transparent'
+      id: d.id, summary: d.title, colorId: colorId,
+      start: { dateTime: d.date + 'T' + d.start + ':00', timeZone: TZ },
+      end: { dateTime: d.date + 'T' + d.end + ':00', timeZone: TZ },
+      extendedProperties: { private: { app: APP_TAG, m: monthKey, sig: d.sig } },
+      reminders: { useDefault: false }
     };
   }
 
-  async function listManaged(token, calId, timeMin, timeMax) {
+  // Eventi gestiti dall'app per QUESTO mese (tag app + m=YYYY-MM): cosi' il
+  // diff e' corretto anche per gli "SN" che cadono nel mese successivo.
+  async function listManaged(token, calId, monthKey) {
     const map = new Map(); let pageToken;
     do {
-      const qs = new URLSearchParams({ privateExtendedProperty: 'app=' + APP_TAG, singleEvents: 'true', showDeleted: 'false', maxResults: '2500', timeMin, timeMax });
+      const qs = new URLSearchParams({ singleEvents: 'true', showDeleted: 'false', maxResults: '2500' });
+      qs.append('privateExtendedProperty', 'app=' + APP_TAG);
+      qs.append('privateExtendedProperty', 'm=' + monthKey);
       if (pageToken) qs.set('pageToken', pageToken);
       let res;
       try { res = await gcal(token, 'GET', '/calendars/' + encodeURIComponent(calId) + '/events?' + qs.toString()); }
@@ -168,38 +189,28 @@
   async function runOnce(token, email, year, month, dates, colorId, forceCreate, onProgress) {
     onProgress && onProgress({ phase: 'calendar' });
     const calId = await findOrCreateCalendar(token, colorId, forceCreate);
-
-    const firstStr = year + '-' + pad2(month + 1) + '-01';
-    const nm = new Date(year, month + 1, 1);
-    const nextMStr = nm.getFullYear() + '-' + pad2(nm.getMonth() + 1) + '-01';
-    const timeMin = new Date(year, month, 1).toISOString();
-    const timeMax = new Date(year, month + 1, 2).toISOString();
+    const monthKey = year + '-' + pad2(month + 1);
 
     onProgress && onProgress({ phase: 'reading' });
-    const existing = forceCreate ? new Map() : await listManaged(token, calId, timeMin, timeMax);
-    // tieni solo eventi del mese corrente (per non toccare gli altri mesi)
-    const existingMonth = new Map();
-    for (const [id, ev] of existing) { const d = ev.start && ev.start.date; if (d && d >= firstStr && d < nextMStr) existingMonth.set(id, ev); }
-
-    const desired = new Map();
-    for (const g of dates) desired.set(eventId(email, g), { giorno: g, sig: 'c' + colorId });
+    const existing = forceCreate ? new Map() : await listManaged(token, calId, monthKey);
+    const desired = buildDesired(email, dates, colorId);
 
     const toCreate = [], toUpdate = [], toDelete = [];
     for (const [id, d] of desired) {
-      const ex = existingMonth.get(id);
+      const ex = existing.get(id);
       if (!ex) toCreate.push(d);
       else if (!(ex.extendedProperties && ex.extendedProperties.private && ex.extendedProperties.private.sig === d.sig)) toUpdate.push(d);
     }
-    for (const [id] of existingMonth) if (!desired.has(id)) toDelete.push(id);
+    for (const [id] of existing) if (!desired.has(id)) toDelete.push(id);
 
     const total = toCreate.length + toUpdate.length + toDelete.length; let done = 0;
     const tick = () => { done++; onProgress && onProgress({ phase: 'writing', done, total }); };
     onProgress && onProgress({ phase: 'writing', done: 0, total });
     const path = '/calendars/' + encodeURIComponent(calId) + '/events';
     const createEvent = async (d) => {
-      try { await gcal(token, 'POST', path, eventBody(email, d.giorno, colorId)); }
+      try { await gcal(token, 'POST', path, eventBody(d, colorId, monthKey)); }
       catch (e) {
-        if (/HTTP 409/.test(e.message)) await gcal(token, 'PUT', path + '/' + eventId(email, d.giorno), eventBody(email, d.giorno, colorId));
+        if (/HTTP 409/.test(e.message)) await gcal(token, 'PUT', path + '/' + d.id, eventBody(d, colorId, monthKey));
         else if (/HTTP 404/.test(e.message)) throw calGone();
         else throw e;
       }
@@ -207,7 +218,7 @@
     const W = 2;
     await pool(toCreate, W, async d => { await createEvent(d); tick(); });
     await pool(toUpdate, W, async d => {
-      try { await gcal(token, 'PUT', path + '/' + eventId(email, d.giorno), eventBody(email, d.giorno, colorId)); }
+      try { await gcal(token, 'PUT', path + '/' + d.id, eventBody(d, colorId, monthKey)); }
       catch (e) { if (/HTTP 404/.test(e.message)) await createEvent(d); else throw e; }
       tick();
     });
