@@ -117,7 +117,9 @@ table.turni thead th .udot { width: 22px; height: 4px; border-radius: 3px; backg
 /* colonne sinistre fisse */
 .c-num  { position: sticky; left: 0; z-index: 15; width: 46px; min-width: 46px; }
 .c-wday { position: sticky; left: 46px; z-index: 15; width: 116px; min-width: 116px; text-align: left; box-shadow: 6px 0 8px -4px rgba(20,40,30,.25); }
-thead th.c-num, thead th.c-wday { z-index: 25; }
+/* specificita' alta: deve battere "table.turni thead th" (z-index 20),
+   altrimenti gli header dei turnisti passerebbero SOPRA a #/Giorno */
+table.turni thead th.c-num, table.turni thead th.c-wday { z-index: 25; }
 
 td.c-num {
   text-align: center; font-weight: 700; background: var(--card);
