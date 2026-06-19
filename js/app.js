@@ -449,6 +449,81 @@
   }
 
   // ============================================================
+  //  GENERA PDF TURNI
+  // ============================================================
+  let _pdfLoading = null;
+  function loadJsPdf() {
+    if (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable) return Promise.resolve();
+    if (_pdfLoading) return _pdfLoading;
+    _pdfLoading = new Promise((resolve, reject) => {
+      const a = document.createElement('script');
+      a.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      a.onload = () => {
+        const b = document.createElement('script');
+        b.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js';
+        b.onload = () => resolve();
+        b.onerror = () => reject(new Error('autotable non caricato'));
+        document.head.appendChild(b);
+      };
+      a.onerror = () => reject(new Error('jsPDF non caricato'));
+      document.head.appendChild(a);
+    });
+    return _pdfLoading;
+  }
+  // dal nome colonna ("Marabelli S.") ricava il cognome MAIUSCOLO ("MARABELLI")
+  function surnameOf(u) {
+    let n = (u.nome || u.email.split('@')[0]).trim();
+    n = n.replace(/\s+[A-Za-zÀ-ÿ]\.?$/, '');   // togli un'eventuale iniziale finale "S." / "S"
+    return n.toUpperCase();
+  }
+  async function genPdf() {
+    const btn = $('btn-pdf'); btn.disabled = true;
+    try {
+      await loadJsPdf();
+      const { jsPDF } = window.jspdf;
+      const y = state.year, m = state.month, ndays = new Date(y, m + 1, 0).getDate();
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text('Continuità Assistenziale Palombara distretto di Guidonia _A.S.L. Roma 5_', 105, 13, { align: 'center' });
+      doc.setFontSize(12);
+      doc.text(`TURNI GUARDIA notte ${MESI[m]} ${y}`, 105, 20, { align: 'center' });
+
+      const body = [];
+      for (let d = 1; d <= ndays; d++) {
+        const date = new Date(y, m, d), giorno = dstr(date);
+        const names = state.users.filter(u => state.turni.has(lower(u.email) + '|' + giorno)).map(surnameOf);
+        body.push([String(d), GIORNI[date.getDay()], names.join(', '), '', '']);
+      }
+      doc.autoTable({
+        head: [['', '', '', '', 'Cambi/Sostituzioni']],
+        body,
+        startY: 25,
+        theme: 'grid',
+        styles: { font: 'helvetica', fontSize: 10.5, cellPadding: { top: 1.5, bottom: 1.5, left: 2, right: 2 }, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0], valign: 'middle' },
+        headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
+        columnStyles: {
+          0: { cellWidth: 12, halign: 'center', fontStyle: 'bold' },
+          1: { cellWidth: 28, fontStyle: 'bold' },
+          2: { cellWidth: 48, fontStyle: 'bold' },
+          3: { cellWidth: 7 },
+          4: { cellWidth: 95 }
+        },
+        didParseCell: (data) => {
+          if (data.section === 'body' && data.column.index === 1) {
+            const date = new Date(y, m, data.row.index + 1);
+            if (isRed(date)) data.cell.styles.textColor = [205, 0, 0];           // domenica/festivo
+            else if (date.getDay() === 6) data.cell.styles.textColor = [230, 120, 0]; // sabato
+          }
+        }
+      });
+      doc.save(`turni-guardia-${MESI[m].toLowerCase()}-${y}.pdf`);
+    } catch (e) {
+      console.error(e); toast('Errore nella generazione del PDF', true);
+    } finally { btn.disabled = false; }
+  }
+
+  // ============================================================
   //  ADMIN — gestione turnisti
   // ============================================================
   function nextColor(users) {
@@ -586,6 +661,7 @@
     $('modal-sync').addEventListener('click', (e) => { if (e.target.id === 'modal-sync') closeSync(); });
     $('sync-cal').addEventListener('change', (e) => { state.syncCal = e.target.value; updateSyncCalUI(); });
     $('sync-load-cals').addEventListener('click', loadSyncCals);
+    $('btn-pdf').addEventListener('click', genPdf);
 
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeAdmin(); closeNote(); closeSync(); } });
   }
