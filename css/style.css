@@ -239,6 +239,11 @@ tfoot td.c-note { background: var(--green-head); }
 /* ---------- Sincronizza Google Calendar ---------- */
 .modal-sync-card { max-width: 460px; }
 .sync-color-label { font-size: 13px; font-weight: 600; color: var(--green-dd); margin: 14px 0 8px; }
+.sync-cal-label { display: block; font-size: 13px; font-weight: 600; color: var(--green-dd); margin: 14px 0 6px; }
+.sync-cal-select { width: 100%; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 10px; font-size: 15px; background: #fff; color: var(--ink); }
+.sync-load-btn { margin-top: 8px; background: var(--green-tint); color: var(--green-d); border: 1px solid var(--line); border-radius: 9px; padding: 8px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.sync-load-btn:hover { background: var(--green-head); }
+.sync-cal-note { font-size: 12.5px; margin-top: 10px; }
 .sync-colors { display: flex; flex-wrap: wrap; gap: 8px; }
 .sync-sw { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line-strong); transition: transform .1s; padding: 0; }
 .sync-sw.sel { transform: scale(1.15); border: 3px solid var(--green-dd); box-shadow: 0 0 0 1px var(--green-dd); }

@@ -120,10 +120,18 @@
       <button id="btn-sync-close" class="modal-x" type="button" aria-label="Chiudi">×</button>
       <h3>📅 Sincronizza con Google Calendar</h3>
       <div id="sync-intro">
-        <p class="modal-sub">Verranno sincronizzati <b>solo i tuoi turni</b> di <b id="sync-mese"></b> nel calendario <b>«TURNI PALOMBARA»</b> (creato in automatico se non esiste). Per ogni turno: <b>«Notte Palombara» 20:00–22:00</b> e <b>«SN» 08:00–10:00</b> il mattino dopo.</p>
-        <div class="sync-color-label">Scegli il colore con cui vedrai i turni:</div>
-        <div id="sync-colors" class="sync-colors"></div>
-        <p id="sync-nodata" class="muted sync-nodata hidden">⚠️ Non hai turni in questo mese: sincronizzando, eventuali turni già presenti sul calendario per questo mese verranno <b>rimossi</b>.</p>
+        <p class="modal-sub">Sincronizza <b>i tuoi turni</b> di <b id="sync-mese"></b>. Per ogni turno: <b>«Notte Palombara» 20:00–22:00</b> e <b>«SN» 08:00–10:00</b> il mattino dopo.</p>
+        <label class="sync-cal-label" for="sync-cal">Calendario di destinazione</label>
+        <select id="sync-cal" class="sync-cal-select">
+          <option value="__palombara__">« TURNI PALOMBARA » (crea/usa)</option>
+        </select>
+        <button id="sync-load-cals" type="button" class="sync-load-btn">↻ Carica i miei calendari…</button>
+        <div id="sync-color-wrap">
+          <div class="sync-color-label">Colore del calendario:</div>
+          <div id="sync-colors" class="sync-colors"></div>
+        </div>
+        <p id="sync-cal-note" class="muted sync-cal-note hidden"></p>
+        <p id="sync-nodata" class="muted sync-nodata hidden">⚠️ Non hai turni in questo mese: sincronizzando, i turni di questo mese già presenti sul calendario scelto verranno <b>rimossi</b>.</p>
       </div>
       <div id="sync-progress" class="sync-progress hidden">
         <div class="sync-spinner"></div>

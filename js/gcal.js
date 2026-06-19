@@ -59,18 +59,36 @@
     });
     return gisLoading;
   }
+  // Cache del token in memoria: Google chiede il consenso solo la PRIMA volta,
+  // poi riusiamo il token finche' valido (~1h) -> niente popup ad ogni sync.
+  let _token = null, _tokenExp = 0;
+  function hasToken() { return !!_token && Date.now() < _tokenExp; }
   async function requestToken(clientId) {
+    if (hasToken()) return _token;
     if (!clientId) throw new Error('Client ID Google non configurato');
     await loadGis();
     const oauth2 = window.google.accounts.oauth2;
     return new Promise((resolve, reject) => {
       const client = oauth2.initTokenClient({
         client_id: clientId, scope: SCOPE,
-        callback: (resp) => { if (resp.access_token) resolve(resp.access_token); else reject(new Error(resp.error || 'Autorizzazione negata')); },
+        callback: (resp) => {
+          if (resp.access_token) {
+            _token = resp.access_token;
+            _tokenExp = Date.now() + ((resp.expires_in ? resp.expires_in : 3600) * 1000) - 60000;
+            resolve(_token);
+          } else reject(new Error(resp.error || 'Autorizzazione negata'));
+        },
         error_callback: (err) => reject(new Error((err && (err.message || err.type)) || 'Autorizzazione annullata'))
       });
       client.requestAccessToken({ prompt: '' });
     });
+  }
+
+  // Calendari su cui l'utente puo' SCRIVERE (owner/writer).
+  async function listCalendars(clientId) {
+    const token = await requestToken(clientId);
+    const res = await gcal(token, 'GET', '/users/me/calendarList?maxResults=250&minAccessRole=writer');
+    return (res.items || []).map(c => ({ id: c.id, summary: c.summary || c.id, primary: !!c.primary }));
   }
 
   // ---------- REST helper (retry con backoff su 429/5xx/rate-limit) ----------
@@ -189,13 +207,10 @@
     await Promise.all(workers);
   }
 
-  async function runOnce(token, email, year, month, dates, color, forceCreate, onProgress) {
-    onProgress && onProgress({ phase: 'calendar' });
-    const calId = await findOrCreateCalendar(token, color, forceCreate);
-    const monthKey = year + '-' + pad2(month + 1);
-
+  // Diff dei turni di un mese su UN calendario gia' risolto (calId).
+  async function diffOnCalendar(token, calId, email, monthKey, dates, onProgress, skipRead) {
     onProgress && onProgress({ phase: 'reading' });
-    const existing = forceCreate ? new Map() : await listManaged(token, calId, monthKey);
+    const existing = skipRead ? new Map() : await listManaged(token, calId, monthKey);
     const desired = buildDesired(email, dates);
 
     const toCreate = [], toUpdate = [], toDelete = [];
@@ -232,20 +247,50 @@
     });
 
     onProgress && onProgress({ phase: 'done' });
-    return { calendarId: calId, created: toCreate.length, updated: toUpdate.length, deleted: toDelete.length, unchanged: desired.size - toCreate.length - toUpdate.length };
+    return { calId, created: toCreate.length, updated: toUpdate.length, deleted: toDelete.length, unchanged: desired.size - toCreate.length - toUpdate.length };
   }
 
+  // Rimuove TUTTI i turni di un mese da un calendario (per spostarli altrove).
+  async function deleteMonthEvents(token, calId, monthKey) {
+    const existing = await listManaged(token, calId, monthKey);
+    const path = '/calendars/' + encodeURIComponent(calId) + '/events';
+    await pool([...existing.keys()], 2, async id => {
+      try { await gcal(token, 'DELETE', path + '/' + id); }
+      catch (e) { if (!/HTTP 4(04|10)/.test(e.message)) throw e; }
+    });
+  }
+
+  // Sincronizza il mese sul calendario scelto.
+  //   target = { palombara:true, color }    -> crea/usa «TURNI PALOMBARA» col colore
+  //   target = { palombara:false, calId }   -> usa un calendario esistente (eredita il suo colore)
+  //   prevCalId = calendario su cui era sincronizzato il mese (dal DB): se diverso, sposta gli eventi.
   async function syncMonth(opts) {
-    const { clientId, email, year, month, dates, color, onProgress } = opts;
+    const { clientId, email, year, month, dates, target, prevCalId, onProgress } = opts;
     onProgress && onProgress({ phase: 'auth' });
     const token = await requestToken(clientId);
-    saveColor(color);
-    try { return await runOnce(token, email, year, month, dates, color, false, onProgress); }
-    catch (e) {
-      if (isGone(e)) { try { localStorage.removeItem(LS_HINT); } catch (_) {} return await runOnce(token, email, year, month, dates, color, true, onProgress); }
+    const monthKey = year + '-' + pad2(month + 1);
+
+    onProgress && onProgress({ phase: 'calendar' });
+    let calId;
+    if (target.palombara) { saveColor(target.color); calId = await findOrCreateCalendar(token, target.color, false); }
+    else { calId = target.calId; }
+
+    // se per questo mese si cambia calendario, togli gli eventi dal precedente
+    if (prevCalId && prevCalId !== calId) {
+      try { await deleteMonthEvents(token, prevCalId, monthKey); } catch (_) { /* calendario precedente non piu' disponibile: ignora */ }
+    }
+
+    try {
+      return await diffOnCalendar(token, calId, email, monthKey, dates, onProgress, false);
+    } catch (e) {
+      if (isGone(e) && target.palombara) {
+        try { localStorage.removeItem(LS_HINT); } catch (_) {}
+        const calId2 = await findOrCreateCalendar(token, target.color, true);
+        return await diffOnCalendar(token, calId2, email, monthKey, dates, onProgress, true);
+      }
       throw e;
     }
   }
 
-  window.GCAL = { CAL_COLORS, getSavedColor, syncMonth, CAL_SUMMARY };
+  window.GCAL = { CAL_COLORS, getSavedColor, syncMonth, listCalendars, hasToken, CAL_SUMMARY };
 })();

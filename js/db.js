@@ -89,6 +89,19 @@
       if (error) throw error;
     },
 
+    // --- calendario di sincronizzazione per mese (Google Calendar) ---
+    async getSyncTarget(email, mese) {
+      const { data, error } = await sb.from('sync_target').select('calendar_id')
+        .eq('user_email', lower(email)).eq('mese', mese).maybeSingle();
+      if (error) { console.warn('getSyncTarget', error); return null; }
+      return data ? data.calendar_id : null;
+    },
+    async setSyncTarget(email, mese, calendarId) {
+      const { error } = await sb.from('sync_target')
+        .upsert({ user_email: lower(email), mese, calendar_id: calendarId, updated_at: new Date().toISOString() }, { onConflict: 'user_email,mese' });
+      if (error) throw error;
+    },
+
     subscribeTurni(cb) {
       return sb.channel('turni-live')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'turni' }, cb)

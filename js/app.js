@@ -49,7 +49,8 @@
 
   const state = {
     session: null, me: null, isAdmin: false,
-    users: [], turni: new Set(), saved: new Set(), dirty: false, notes: {}, editingNote: null, syncColor: null,
+    users: [], turni: new Set(), saved: new Set(), dirty: false, notes: {}, editingNote: null,
+    syncColor: null, syncCal: '__palombara__', syncPrev: null, syncCalsLoaded: false, palombaraCalId: null,
     year: new Date().getFullYear(), month: new Date().getMonth(),
     editMode: false, channel: null, _initedFor: null, _reloadTimer: null,
     _localSha: null, _updateAvail: false, _toastDismissed: false, _verChannel: null, _verPollId: null
@@ -342,6 +343,8 @@
       .filter(k => k.slice(0, k.indexOf('|')) === me)
       .map(k => k.slice(k.indexOf('|') + 1)).sort();
   }
+  function monthKeyOf() { return `${state.year}-${DB.pad2(state.month + 1)}`; }
+
   function syncSetStep(step) {
     $('sync-intro').classList.toggle('hidden', step !== 'intro');
     $('sync-progress').classList.toggle('hidden', step !== 'syncing');
@@ -365,29 +368,77 @@
       box.appendChild(b);
     });
   }
+  function updateSyncCalUI() {
+    const isPalombara = state.syncCal === '__palombara__';
+    $('sync-color-wrap').classList.toggle('hidden', !isPalombara);
+    const note = $('sync-cal-note');
+    if (isPalombara) { note.classList.add('hidden'); }
+    else {
+      const opt = [...$('sync-cal').options].find(o => o.value === state.syncCal);
+      note.textContent = `I turni useranno il colore del calendario «${opt ? opt.textContent : ''}».`;
+      note.classList.remove('hidden');
+    }
+  }
+  async function loadSyncCals() {
+    const btn = $('sync-load-cals'); btn.disabled = true; btn.textContent = 'Carico…';
+    try {
+      const cals = await GCAL.listCalendars(CONFIG.GOOGLE_CLIENT_ID);
+      const palombara = cals.find(c => c.summary === GCAL.CAL_SUMMARY);
+      state.palombaraCalId = palombara ? palombara.id : null;
+      const sel = $('sync-cal');
+      sel.innerHTML = '<option value="__palombara__">« TURNI PALOMBARA » (crea/usa)</option>';
+      cals.filter(c => c.summary !== GCAL.CAL_SUMMARY)
+        .sort((a, b) => (b.primary - a.primary) || a.summary.localeCompare(b.summary))
+        .forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.summary + (c.primary ? ' (principale)' : ''); sel.appendChild(o); });
+      let pre = '__palombara__';
+      if (state.syncPrev) {
+        if (state.syncPrev === state.palombaraCalId) pre = '__palombara__';
+        else if ([...sel.options].some(o => o.value === state.syncPrev)) pre = state.syncPrev;
+      }
+      sel.value = pre; state.syncCal = pre; state.syncCalsLoaded = true;
+      btn.classList.add('hidden');
+      updateSyncCalUI();
+    } catch (e) {
+      console.error(e);
+      toast('Impossibile leggere i calendari: ' + (e.message || ''), true);
+      btn.disabled = false; btn.textContent = '↻ Carica i miei calendari…';
+    }
+  }
   function openSync() {
     if (!CONFIG.GOOGLE_CLIENT_ID) { toast('Google non configurato (manca il Client ID).', true); return; }
     $('sync-mese').textContent = `${MESI[state.month]} ${state.year}`;
     $('sync-nodata').classList.toggle('hidden', myMonthDates().length > 0);
+    state.syncCal = '__palombara__'; state.syncCalsLoaded = false; state.palombaraCalId = null; state.syncPrev = null;
+    $('sync-cal').innerHTML = '<option value="__palombara__">« TURNI PALOMBARA » (crea/usa)</option>';
+    $('sync-cal').value = '__palombara__';
+    const lb = $('sync-load-cals'); lb.classList.remove('hidden'); lb.disabled = false; lb.textContent = '↻ Carica i miei calendari…';
     renderSyncColors();
+    updateSyncCalUI();
     syncSetStep('intro');
     $('modal-sync').classList.remove('hidden');
+    DB.getSyncTarget(state.me.email, monthKeyOf()).then(prev => { state.syncPrev = prev || null; }).catch(() => {});
+    if (GCAL.hasToken()) loadSyncCals();
   }
   function closeSync() { $('modal-sync').classList.add('hidden'); }
-  const SYNC_PHASE = { auth: 'Autorizzazione Google…', calendar: 'Preparo il calendario «TURNI PALOMBARA»…', reading: 'Leggo i turni già presenti…', writing: 'Aggiorno i turni…', done: 'Completato' };
+  const SYNC_PHASE = { auth: 'Autorizzazione Google…', calendar: 'Preparo il calendario…', reading: 'Leggo i turni già presenti…', writing: 'Aggiorno i turni…', done: 'Completato' };
   async function doSync() {
     const dates = myMonthDates();   // anche [] è valido: svuota il mese sul calendario
+    const target = state.syncCal === '__palombara__'
+      ? { palombara: true, color: state.syncColor }
+      : { palombara: false, calId: state.syncCal };
     syncSetStep('syncing');
     $('sync-phase').textContent = SYNC_PHASE.auth; $('sync-count').textContent = '';
     try {
+      const prevCalId = await DB.getSyncTarget(state.me.email, monthKeyOf()).catch(() => null);
       const res = await GCAL.syncMonth({
         clientId: CONFIG.GOOGLE_CLIENT_ID, email: lower(state.me.email),
-        year: state.year, month: state.month, dates, color: state.syncColor,
+        year: state.year, month: state.month, dates, target, prevCalId,
         onProgress: (p) => {
           $('sync-phase').textContent = SYNC_PHASE[p.phase] || 'Sincronizzazione…';
           $('sync-count').textContent = (p.phase === 'writing' && p.total != null) ? `${p.done || 0} / ${p.total}` : '';
         }
       });
+      try { await DB.setSyncTarget(state.me.email, monthKeyOf(), res.calId); } catch (_) {}
       $('sync-stats').innerHTML = `<span>Creati ${res.created}</span><span>Aggiornati ${res.updated}</span><span>Eliminati ${res.deleted}</span><span>Invariati ${res.unchanged}</span>`;
       syncSetStep('done');
     } catch (e) {
@@ -533,6 +584,8 @@
     $('btn-sync-cancel').addEventListener('click', closeSync);
     $('btn-sync-close').addEventListener('click', closeSync);
     $('modal-sync').addEventListener('click', (e) => { if (e.target.id === 'modal-sync') closeSync(); });
+    $('sync-cal').addEventListener('change', (e) => { state.syncCal = e.target.value; updateSyncCalUI(); });
+    $('sync-load-cals').addEventListener('click', loadSyncCals);
 
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeAdmin(); closeNote(); closeSync(); } });
   }

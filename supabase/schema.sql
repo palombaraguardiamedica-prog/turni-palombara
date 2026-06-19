@@ -152,3 +152,25 @@ begin
   begin alter publication supabase_realtime add table public.note_giorni; exception when others then null; end;
 end
 $rtn$;
+
+-- ---------- Calendario di sincronizzazione per mese (Google Calendar) ----------
+-- Tiene traccia, per ogni turnista e mese (YYYY-MM), su quale calendario Google
+-- sono stati sincronizzati i turni: cosi' se si cambia calendario per un mese,
+-- gli eventi vengono spostati (tolti dal vecchio, messi nel nuovo). Cross-device.
+create table if not exists public.sync_target (
+  user_email  text not null,
+  mese        text not null,
+  calendar_id text not null,
+  updated_at  timestamptz not null default now(),
+  primary key (user_email, mese)
+);
+alter table public.sync_target enable row level security;
+drop policy if exists st_select on public.sync_target;
+drop policy if exists st_write  on public.sync_target;
+create policy st_select on public.sync_target for select to authenticated
+  using (public.email_autorizzata() and lower(user_email) = lower(auth.jwt() ->> 'email'));
+create policy st_write on public.sync_target for all to authenticated
+  using (lower(user_email) = lower(auth.jwt() ->> 'email'))
+  with check (lower(user_email) = lower(auth.jwt() ->> 'email'));
+grant select, insert, update, delete on public.sync_target to authenticated;
+grant all on public.sync_target to service_role;
